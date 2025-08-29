@@ -11,18 +11,33 @@ A Model Context Protocol (MCP) server that provides Bitcoin development tools us
 - **Network Support**: Mainnet, Testnet, and Regtest configurations
 - **Validation**: Comprehensive input validation and error handling
 
-## Installation
+## Installation & Usage
 
-```bash
-npm install
-npm run build
+### For MCP Clients (Claude Code, etc.)
+
+Add to your MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "bitcoinjs": {
+      "command": "npx",
+      "args": ["-y", "bitcoinjs-mcp-server"]
+    }
+  }
+}
 ```
 
-## Usage
-
-Start the MCP server:
+### For Development
 
 ```bash
+# Clone and install
+git clone https://github.com/Odyssey98/bitcoinjs-mcp-server.git
+cd bitcoinjs-mcp-server
+npm install
+npm run build
+
+# Start the server
 npm start
 ```
 
@@ -54,6 +69,15 @@ npm start
 - `create_multisig`: Create multisignature addresses
 - `compile_script`: Compile Bitcoin scripts
 - `hash_message`: Hash messages for signing
+
+## Example Usage
+
+Once configured in your MCP client, you can use these tools:
+
+- Generate a new Bitcoin address: "Generate a P2WPKH testnet address"
+- Create a transaction: "Create a transaction sending 0.001 BTC from [address] to [address]"
+- Work with multisig: "Create a 2-of-3 multisig address with these public keys: [...]"
+- Sign transactions: "Sign this transaction hex with the private key"
 
 ## Development
 
