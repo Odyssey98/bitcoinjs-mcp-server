@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "bitcoinjs": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "/path/to/bitcoinjs-mcp-server"
+    }
+  }
+}
