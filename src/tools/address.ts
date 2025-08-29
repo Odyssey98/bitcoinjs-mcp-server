@@ -1,6 +1,6 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { getNetworkConfig, validateNetwork, isValidAddress } from '../utils/bitcoin.js';
+import { getNetworkConfig, validateNetwork, isValidAddress, ECPair } from '../utils/bitcoin.js';
 import { AddressInfo, KeyPair } from '../types/index.js';
 
 export const addressTools: Tool[] = [
@@ -105,13 +105,21 @@ export const addressTools: Tool[] = [
 export async function handleAddressTool(name: string, args: Record<string, any>): Promise<any> {
   switch (name) {
     case 'generate_address':
-      return generateAddress(args);
+      return generateAddress(
+        args as {
+          type: string;
+          network?: string;
+          publicKey?: string;
+          redeemScript?: string;
+          witnessScript?: string;
+        }
+      );
     case 'validate_address':
-      return validateAddress(args);
+      return validateAddress(args as { address: string; network?: string });
     case 'decode_address':
-      return decodeAddress(args);
+      return decodeAddress(args as { address: string; network?: string });
     case 'address_from_script':
-      return addressFromScript(args);
+      return addressFromScript(args as { script: string; network?: string; type: string });
     default:
       throw new Error(`Unknown address tool: ${name}`);
   }
@@ -128,7 +136,7 @@ function generateAddress(args: {
   if (!validateNetwork(networkName)) {
     throw new Error(`Invalid network: ${networkName}`);
   }
-  
+
   const network = getNetworkConfig(networkName);
   let keyPair: bitcoin.Signer;
   let pubkey: Buffer;
@@ -141,11 +149,13 @@ function generateAddress(args: {
     // Create a dummy signer with the public key
     keyPair = {
       publicKey: pubkey,
-      sign: () => { throw new Error('Private key not available for signing'); }
-    };
+      sign: () => {
+        throw new Error('Private key not available for signing');
+      },
+    } as any;
   } else {
-    keyPair = bitcoin.ECPair.makeRandom({ network });
-    pubkey = keyPair.publicKey!;
+    keyPair = ECPair.makeRandom({ network }) as any;
+    pubkey = Buffer.from(keyPair.publicKey);
   }
 
   let payment: bitcoin.Payment;
@@ -239,7 +249,7 @@ function validateAddress(args: { address: string; network?: string }): {
 } {
   try {
     const address = args.address;
-    
+
     if (args.network) {
       const network = getNetworkConfig(args.network);
       const valid = isValidAddress(address, network);
@@ -289,7 +299,7 @@ function decodeAddress(args: { address: string; network?: string }): any {
   try {
     const address = args.address;
     let network: bitcoin.Network;
-    let detectedNetwork: string;
+    let detectedNetwork: string = '';
 
     if (args.network) {
       network = getNetworkConfig(args.network);
@@ -323,7 +333,9 @@ function decodeAddress(args: { address: string; network?: string }): any {
       scriptAsm: bitcoin.script.toASM(outputScript),
     };
   } catch (error) {
-    throw new Error(`Failed to decode address: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to decode address: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -372,7 +384,7 @@ function addressFromScript(args: { script: string; network?: string; type: strin
 function getAddressType(address: string, network: bitcoin.Network): string {
   try {
     const outputScript = bitcoin.address.toOutputScript(address, network);
-    
+
     if (bitcoin.payments.p2pkh({ output: outputScript, network }).address === address) {
       return 'p2pkh';
     }
@@ -388,7 +400,7 @@ function getAddressType(address: string, network: bitcoin.Network): string {
     if (bitcoin.payments.p2tr({ output: outputScript, network }).address === address) {
       return 'p2tr';
     }
-    
+
     return 'unknown';
   } catch {
     return 'unknown';

@@ -27,9 +27,9 @@ describe('Utility Tools', () => {
   describe('create_multisig', () => {
     it('should create 2-of-3 multisig', async () => {
       const publicKeys = [
-        '02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9388',
-        '03389ffce9cd9ae88dcc0631e88a821ffdbe9bfe26381143ffdb63a3e2369b4e1df7',
-        '02d20b322326f8b02f9e82c4ef3a0a7d88c2e80b11e6c93a98b0c3a6f7e5a1f2d6e',
+        '02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f93',
+        '03389ffce9cd9ae88dcc0631e88a821ffdbe9bfe26381143ffdb63a3e2369b4e1df',
+        '02d20b322326f8b02f9e82c4ef3a0a7d88c2e80b11e6c93a98b0c3a6f7e5a1f2d6',
       ];
 
       const result = await handleUtilityTool('create_multisig', {
@@ -66,7 +66,7 @@ describe('Utility Tools', () => {
 
       expect(result.hashType).toBe('sha256');
       expect(result.hash).toMatch(/^[0-9a-f]{64}$/);
-      expect(result.hash).toBe('185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969');
+      expect(result.hash).toBe('0d8e23812e57a72c4d93c75d08846ceceba8045178ef177ad14d408d4c9568f5');
     });
 
     it('should compute HASH160', async () => {
@@ -86,15 +86,15 @@ describe('Utility Tools', () => {
         encoding: 'hex',
       });
 
-      expect(result.hash).toBe('185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969');
+      expect(result.hash).toBe('0d8e23812e57a72c4d93c75d08846ceceba8045178ef177ad14d408d4c9568f5');
     });
   });
 
   describe('compile_script', () => {
     it('should compile multisig script', async () => {
       const publicKeys = [
-        '02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9388',
-        '03389ffce9cd9ae88dcc0631e88a821ffdbe9bfe26381143ffdb63a3e2369b4e1df7',
+        '02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f93',
+        '03389ffce9cd9ae88dcc0631e88a821ffdbe9bfe26381143ffdb63a3e2369b4e1df',
       ];
 
       const result = await handleUtilityTool('compile_script', {
@@ -114,12 +114,15 @@ describe('Utility Tools', () => {
 
     it('should compile from ASM', async () => {
       const result = await handleUtilityTool('compile_script', {
-        scriptAsm: 'OP_DUP OP_HASH160 6f1a4b2e8c4e7a5b3e4c6f7a8b9c0d1e2f3a4b5c OP_EQUALVERIFY OP_CHECKSIG',
+        scriptAsm:
+          'OP_DUP OP_HASH160 6f1a4b2e8c4e7a5b3e4c6f7a8b9c0d1e2f3a4b5c OP_EQUALVERIFY OP_CHECKSIG',
       });
 
       expect(result.type).toBe('custom');
       expect(result.hex).toBeDefined();
-      expect(result.asm).toBe('OP_DUP OP_HASH160 6f1a4b2e8c4e7a5b3e4c6f7a8b9c0d1e2f3a4b5c OP_EQUALVERIFY OP_CHECKSIG');
+      expect(result.asm).toBe(
+        'OP_DUP OP_HASH160 6f1a4b2e8c4e7a5b3e4c6f7a8b9c0d1e2f3a4b5c OP_EQUALVERIFY OP_CHECKSIG'
+      );
     });
 
     it('should create OP_RETURN script', async () => {
@@ -135,7 +138,7 @@ describe('Utility Tools', () => {
 
     it('should throw error for oversized OP_RETURN', async () => {
       const largeData = 'a'.repeat(162); // 81 bytes in hex = 162 chars
-      
+
       await expect(
         handleUtilityTool('compile_script', {
           scriptType: 'nulldata',

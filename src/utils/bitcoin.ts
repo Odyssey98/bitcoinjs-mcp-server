@@ -1,9 +1,15 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';
+import ECPairFactory from 'ecpair';
+import BIP32Factory from 'bip32';
 import { NetworkConfig } from '../types/index.js';
 
 // Initialize ECC library
 bitcoin.initEccLib(ecc);
+
+// Initialize ECPair and BIP32 factories
+export const ECPair = ECPairFactory(ecc);
+export const BIP32 = BIP32Factory(ecc);
 
 export const networks = {
   mainnet: bitcoin.networks.bitcoin,

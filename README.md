@@ -29,23 +29,27 @@ npm start
 ## Available Tools
 
 ### Address Tools
+
 - `generate_address`: Generate Bitcoin addresses of various types
 - `validate_address`: Validate Bitcoin address format and network
 - `decode_address`: Decode address to script and other details
 
 ### Transaction Tools
+
 - `create_transaction`: Create new Bitcoin transactions
 - `sign_transaction`: Sign transactions with private keys
 - `decode_transaction`: Decode raw transaction hex
 - `estimate_tx_size`: Estimate transaction size and fees
 
 ### PSBT Tools
+
 - `create_psbt`: Create Partially Signed Bitcoin Transaction
 - `update_psbt`: Add inputs/outputs to existing PSBT
 - `sign_psbt`: Sign PSBT with keys
 - `finalize_psbt`: Finalize and extract transaction
 
 ### Utility Tools
+
 - `generate_keypair`: Generate new key pairs
 - `create_multisig`: Create multisignature addresses
 - `compile_script`: Compile Bitcoin scripts

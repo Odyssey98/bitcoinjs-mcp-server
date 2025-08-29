@@ -1,6 +1,6 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { getNetworkConfig, validateNetwork, isValidHex, estimateTransactionSize, formatSatoshis, parseBTCAmount } from '../utils/bitcoin.js';
+import { getNetworkConfig, validateNetwork, isValidHex, estimateTransactionSize, formatSatoshis, parseBTCAmount, ECPair } from '../utils/bitcoin.js';
 import { TransactionInfo, TransactionInput, TransactionOutput } from '../types/index.js';
 
 export const transactionTools: Tool[] = [
@@ -139,15 +139,15 @@ export const transactionTools: Tool[] = [
 export async function handleTransactionTool(name: string, args: Record<string, any>): Promise<any> {
   switch (name) {
     case 'create_transaction':
-      return createTransaction(args);
+      return createTransaction(args as any);
     case 'decode_transaction':
-      return decodeTransaction(args);
+      return decodeTransaction(args as { hex: string; network?: string; });
     case 'sign_transaction':
-      return signTransaction(args);
+      return signTransaction(args as { hex: string; privateKeys: string[]; network?: string; });
     case 'estimate_transaction_fee':
-      return estimateTransactionFee(args);
+      return estimateTransactionFee(args as { inputs: number; outputs: number; feeRate: number; inputType?: string; });
     case 'broadcast_transaction':
-      return validateTransaction(args);
+      return validateTransaction(args as { hex: string; network?: string; });
     default:
       throw new Error(`Unknown transaction tool: ${name}`);
   }
@@ -301,12 +301,12 @@ function signTransaction(args: {
   // Convert private keys to ECPair objects
   const keyPairs = args.privateKeys.map((wif, index) => {
     try {
-      return bitcoin.ECPair.fromWIF(wif, network);
+      return ECPair.fromWIF(wif, network);
     } catch (error) {
       errors.push(`Invalid private key at index ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return null;
     }
-  }).filter(kp => kp !== null) as bitcoin.Signer[];
+  }).filter(kp => kp !== null) as any[];
 
   if (keyPairs.length === 0) {
     throw new Error('No valid private keys provided');

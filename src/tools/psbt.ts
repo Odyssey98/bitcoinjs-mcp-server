@@ -1,6 +1,6 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { getNetworkConfig, validateNetwork, isValidHex } from '../utils/bitcoin.js';
+import { getNetworkConfig, validateNetwork, isValidHex, ECPair } from '../utils/bitcoin.js';
 import { PSBTInfo } from '../types/index.js';
 
 export const psbtTools: Tool[] = [
@@ -21,14 +21,17 @@ export const psbtTools: Tool[] = [
               scriptPubKey: { type: 'string', description: 'Output script in hex' },
               redeemScript: { type: 'string', description: 'Redeem script for P2SH (hex)' },
               witnessScript: { type: 'string', description: 'Witness script for P2WSH (hex)' },
-              witnessUtxo: { 
+              witnessUtxo: {
                 type: 'object',
                 properties: {
                   script: { type: 'string' },
-                  value: { type: 'number' }
-                }
+                  value: { type: 'number' },
+                },
               },
-              nonWitnessUtxo: { type: 'string', description: 'Full transaction hex for non-witness inputs' },
+              nonWitnessUtxo: {
+                type: 'string',
+                description: 'Full transaction hex for non-witness inputs',
+              },
             },
             required: ['txid', 'vout', 'amount'],
           },
@@ -158,8 +161,8 @@ export const psbtTools: Tool[] = [
               type: 'object',
               properties: {
                 script: { type: 'string' },
-                value: { type: 'number' }
-              }
+                value: { type: 'number' },
+              },
             },
             nonWitnessUtxo: { type: 'string' },
             redeemScript: { type: 'string' },
@@ -171,11 +174,11 @@ export const psbtTools: Tool[] = [
                 properties: {
                   pubkey: { type: 'string' },
                   masterFingerprint: { type: 'string' },
-                  path: { type: 'string' }
-                }
-              }
-            }
-          }
+                  path: { type: 'string' },
+                },
+              },
+            },
+          },
         },
         network: {
           type: 'string',
@@ -191,17 +194,19 @@ export const psbtTools: Tool[] = [
 export async function handlePSBTTool(name: string, args: Record<string, any>): Promise<any> {
   switch (name) {
     case 'create_psbt':
-      return createPSBT(args);
+      return createPSBT(args as any);
     case 'decode_psbt':
-      return decodePSBT(args);
+      return decodePSBT(args as { psbt: string; network?: string });
     case 'sign_psbt':
-      return signPSBT(args);
+      return signPSBT(args as { psbt: string; privateKeys: string[]; network?: string });
     case 'finalize_psbt':
-      return finalizePSBT(args);
+      return finalizePSBT(args as { psbt: string; network?: string });
     case 'combine_psbts':
-      return combinePSBTs(args);
+      return combinePSBTs(args as { psbts: string[]; network?: string });
     case 'update_psbt':
-      return updatePSBT(args);
+      return updatePSBT(
+        args as { psbt: string; inputIndex: number; updates: any; network?: string }
+      );
     default:
       throw new Error(`Unknown PSBT tool: ${name}`);
   }
@@ -318,7 +323,9 @@ function decodePSBT(args: { psbt: string; network?: string }): any {
       psbt = bitcoin.Psbt.fromHex(args.psbt, { network });
     }
   } catch (error) {
-    throw new Error(`Invalid PSBT format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Invalid PSBT format: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 
   const tx = psbt.extractTransaction(true); // true = allow incomplete
@@ -330,17 +337,21 @@ function decodePSBT(args: { psbt: string; network?: string }): any {
       txid: Buffer.from(txInput.hash).reverse().toString('hex'),
       vout: txInput.index,
       sequence: txInput.sequence,
-      witnessUtxo: input.witnessUtxo ? {
-        script: input.witnessUtxo.script.toString('hex'),
-        value: input.witnessUtxo.value,
-      } : undefined,
+      witnessUtxo: input.witnessUtxo
+        ? {
+            script: input.witnessUtxo.script.toString('hex'),
+            value: input.witnessUtxo.value,
+          }
+        : undefined,
       nonWitnessUtxo: input.nonWitnessUtxo ? input.nonWitnessUtxo.toString('hex') : undefined,
       redeemScript: input.redeemScript ? input.redeemScript.toString('hex') : undefined,
       witnessScript: input.witnessScript ? input.witnessScript.toString('hex') : undefined,
-      partialSig: input.partialSig ? input.partialSig.map(sig => ({
-        pubkey: sig.pubkey.toString('hex'),
-        signature: sig.signature.toString('hex'),
-      })) : [],
+      partialSig: input.partialSig
+        ? input.partialSig.map((sig) => ({
+            pubkey: sig.pubkey.toString('hex'),
+            signature: sig.signature.toString('hex'),
+          }))
+        : [],
       sighashType: input.sighashType,
     };
   });
@@ -348,7 +359,7 @@ function decodePSBT(args: { psbt: string; network?: string }): any {
   const outputs = psbt.data.outputs.map((output, index) => {
     const txOutput = tx.outs[index];
     let address: string | undefined;
-    
+
     try {
       address = bitcoin.address.fromOutputScript(txOutput.script, network);
     } catch {
@@ -376,11 +387,12 @@ function decodePSBT(args: { psbt: string; network?: string }): any {
   };
 }
 
-function signPSBT(args: {
+function signPSBT(args: { psbt: string; privateKeys: string[]; network?: string }): {
   psbt: string;
-  privateKeys: string[];
-  network?: string;
-}): { psbt: string; base64: string; signed: boolean; errors?: string[] } {
+  base64: string;
+  signed: boolean;
+  errors?: string[];
+} {
   const networkName = args.network || 'testnet';
   if (!validateNetwork(networkName)) {
     throw new Error(`Invalid network: ${networkName}`);
@@ -396,20 +408,26 @@ function signPSBT(args: {
       psbt = bitcoin.Psbt.fromHex(args.psbt, { network });
     }
   } catch (error) {
-    throw new Error(`Invalid PSBT format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Invalid PSBT format: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 
   const errors: string[] = [];
-  
+
   // Convert private keys to ECPair objects
-  const keyPairs = args.privateKeys.map((wif, index) => {
-    try {
-      return bitcoin.ECPair.fromWIF(wif, network);
-    } catch (error) {
-      errors.push(`Invalid private key at index ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return null;
-    }
-  }).filter(kp => kp !== null) as bitcoin.Signer[];
+  const keyPairs = args.privateKeys
+    .map((wif, index) => {
+      try {
+        return ECPair.fromWIF(wif, network);
+      } catch (error) {
+        errors.push(
+          `Invalid private key at index ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+        return null;
+      }
+    })
+    .filter((kp) => kp !== null) as any[];
 
   if (keyPairs.length === 0) {
     throw new Error('No valid private keys provided');
@@ -467,7 +485,9 @@ function finalizePSBT(args: { psbt: string; network?: string }): {
       psbt = bitcoin.Psbt.fromHex(args.psbt, { network });
     }
   } catch (error) {
-    throw new Error(`Invalid PSBT format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Invalid PSBT format: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 
   const errors: string[] = [];
@@ -478,7 +498,9 @@ function finalizePSBT(args: { psbt: string; network?: string }): {
       try {
         psbt.validateSignaturesOfInput(i, () => true);
       } catch (error) {
-        errors.push(`Input ${i} validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        errors.push(
+          `Input ${i} validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
@@ -491,10 +513,10 @@ function finalizePSBT(args: { psbt: string; network?: string }): {
 
     // Finalize all inputs
     psbt.finalizeAllInputs();
-    
+
     // Extract the final transaction
     const tx = psbt.extractTransaction();
-    
+
     return {
       finalized: true,
       hex: tx.toHex(),
@@ -508,7 +530,10 @@ function finalizePSBT(args: { psbt: string; network?: string }): {
   }
 }
 
-function combinePSBTs(args: { psbts: string[]; network?: string }): { psbt: string; base64: string } {
+function combinePSBTs(args: { psbts: string[]; network?: string }): {
+  psbt: string;
+  base64: string;
+} {
   const networkName = args.network || 'testnet';
   if (!validateNetwork(networkName)) {
     throw new Error(`Invalid network: ${networkName}`);
@@ -528,7 +553,9 @@ function combinePSBTs(args: { psbts: string[]; network?: string }): { psbt: stri
         return bitcoin.Psbt.fromHex(psbtStr, { network });
       }
     } catch (error) {
-      throw new Error(`Invalid PSBT format at index ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Invalid PSBT format at index ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -539,22 +566,22 @@ function combinePSBTs(args: { psbts: string[]; network?: string }): { psbt: stri
   try {
     // Combine all PSBTs
     const combinedPsbt = basePsbt.combine(...otherPsbts);
-    
+
     return {
       psbt: combinedPsbt.toHex(),
       base64: combinedPsbt.toBase64(),
     };
   } catch (error) {
-    throw new Error(`Failed to combine PSBTs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to combine PSBTs: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
-function updatePSBT(args: {
+function updatePSBT(args: { psbt: string; inputIndex: number; updates: any; network?: string }): {
   psbt: string;
-  inputIndex: number;
-  updates: any;
-  network?: string;
-}): { psbt: string; base64: string } {
+  base64: string;
+} {
   const networkName = args.network || 'testnet';
   if (!validateNetwork(networkName)) {
     throw new Error(`Invalid network: ${networkName}`);
@@ -570,7 +597,9 @@ function updatePSBT(args: {
       psbt = bitcoin.Psbt.fromHex(args.psbt, { network });
     }
   } catch (error) {
-    throw new Error(`Invalid PSBT format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Invalid PSBT format: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 
   if (args.inputIndex < 0 || args.inputIndex >= psbt.inputCount) {
@@ -618,7 +647,7 @@ function updatePSBT(args: {
         masterFingerprint: Buffer.from(deriv.masterFingerprint, 'hex'),
         path: deriv.path,
       }));
-      
+
       psbt.updateInput(args.inputIndex, { bip32Derivation });
     }
 
@@ -627,6 +656,8 @@ function updatePSBT(args: {
       base64: psbt.toBase64(),
     };
   } catch (error) {
-    throw new Error(`Failed to update PSBT: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to update PSBT: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }

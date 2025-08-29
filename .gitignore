@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# IDE files
+.vscode/
+
+# OS generated files
+.DS_Store
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# Claude Code configuration
+.claude/

@@ -1,7 +1,7 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import * as crypto from 'crypto';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { getNetworkConfig, validateNetwork, isValidHex } from '../utils/bitcoin.js';
+import { getNetworkConfig, validateNetwork, isValidHex, ECPair, BIP32 } from '../utils/bitcoin.js';
 import { KeyPair, MultisigInfo, ScriptInfo } from '../types/index.js';
 
 export const utilityTools: Tool[] = [
@@ -185,17 +185,17 @@ export const utilityTools: Tool[] = [
 export async function handleUtilityTool(name: string, args: Record<string, any>): Promise<any> {
   switch (name) {
     case 'generate_keypair':
-      return generateKeypair(args);
+      return generateKeypair(args as { network?: string; compressed?: boolean; });
     case 'create_multisig':
-      return createMultisig(args);
+      return createMultisig(args as { m: number; publicKeys: string[]; network?: string; addressType?: string; });
     case 'compile_script':
-      return compileScript(args);
+      return compileScript(args as any);
     case 'hash_message':
-      return hashMessage(args);
+      return hashMessage(args as { message: string; hashType?: string; tag?: string; encoding?: string; });
     case 'derive_child_key':
-      return deriveChildKey(args);
+      return deriveChildKey(args as { extendedKey: string; derivationPath: string; network?: string; });
     case 'verify_message':
-      return verifyMessage(args);
+      return verifyMessage(args as { address: string; message: string; signature: string; network?: string; });
     default:
       throw new Error(`Unknown utility tool: ${name}`);
   }
@@ -210,7 +210,7 @@ function generateKeypair(args: { network?: string; compressed?: boolean }): KeyP
   const network = getNetworkConfig(networkName);
   const compressed = args.compressed !== false; // Default to true
 
-  const keyPair = bitcoin.ECPair.makeRandom({ 
+  const keyPair = ECPair.makeRandom({ 
     network,
     compressed,
   });
@@ -220,8 +220,8 @@ function generateKeypair(args: { network?: string; compressed?: boolean }): KeyP
   }
 
   return {
-    privateKey: keyPair.privateKey.toString('hex'),
-    publicKey: keyPair.publicKey.toString('hex'),
+    privateKey: Buffer.from(keyPair.privateKey).toString('hex'),
+    publicKey: Buffer.from(keyPair.publicKey).toString('hex'),
     wif: keyPair.toWIF(),
     compressed,
   };
@@ -251,15 +251,16 @@ function createMultisig(args: {
 
   // Validate and convert public keys
   const pubkeys = args.publicKeys.map((pubkeyHex, index) => {
-    try {
-      const pubkey = Buffer.from(pubkeyHex, 'hex');
-      if (pubkey.length !== 33 && pubkey.length !== 65) {
-        throw new Error(`Invalid public key length at index ${index}`);
-      }
-      return pubkey;
-    } catch {
-      throw new Error(`Invalid public key format at index ${index}`);
+    if (!/^[0-9a-fA-F]+$/.test(pubkeyHex)) {
+      throw new Error(`Invalid public key format at index ${index}: not hex`);
     }
+    
+    const pubkey = Buffer.from(pubkeyHex, 'hex');
+    if (pubkey.length !== 33 && pubkey.length !== 65) {
+      throw new Error(`Invalid public key length at index ${index}: got ${pubkey.length}, expected 33 or 65`);
+    }
+    
+    return pubkey;
   });
 
   // Create the multisig redeem script
@@ -390,7 +391,14 @@ function compileScript(args: {
 
     case 'multisig':
       if (!args.multisigConfig) throw new Error('Multisig configuration required for multisig script');
-      const pubkeys = args.multisigConfig.publicKeys.map(pk => Buffer.from(pk, 'hex'));
+      const pubkeys = args.multisigConfig.publicKeys.map(pk => {
+        const buf = Buffer.from(pk, 'hex');
+        // Ensure the public key is in the correct format for bitcoinjs-lib
+        if (buf.length !== 33 && buf.length !== 65) {
+          throw new Error(`Invalid public key length: ${buf.length}`);
+        }
+        return buf;
+      });
       const multisig = bitcoin.payments.p2ms({ 
         m: args.multisigConfig.m, 
         pubkeys,
@@ -462,7 +470,7 @@ function hashMessage(args: {
 
     case 'taggedHash':
       if (!args.tag) throw new Error('Tag required for tagged hash');
-      hash = bitcoin.crypto.taggedHash(args.tag, messageBuffer);
+      hash = bitcoin.crypto.taggedHash(args.tag as any, messageBuffer);
       break;
 
     default:
@@ -489,7 +497,7 @@ function deriveChildKey(args: {
 
   try {
     // Parse the extended key
-    const node = bitcoin.bip32.fromBase58(args.extendedKey, network);
+    const node = BIP32.fromBase58(args.extendedKey, network);
     
     // Parse derivation path
     const path = args.derivationPath.replace(/^m\//, '').split('/');
@@ -511,14 +519,14 @@ function deriveChildKey(args: {
 
     // Generate address (P2WPKH by default)
     const payment = bitcoin.payments.p2wpkh({ 
-      pubkey: derivedNode.publicKey, 
+      pubkey: Buffer.from(derivedNode.publicKey), 
       network 
     });
 
     return {
       extendedKey: derivedNode.toBase58(),
-      publicKey: derivedNode.publicKey.toString('hex'),
-      privateKey: derivedNode.privateKey?.toString('hex'),
+      publicKey: Buffer.from(derivedNode.publicKey).toString('hex'),
+      privateKey: derivedNode.privateKey ? Buffer.from(derivedNode.privateKey).toString('hex') : undefined,
       address: payment.address!,
     };
   } catch (error) {
