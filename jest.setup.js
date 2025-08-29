@@ -2,6 +2,19 @@
 const crypto = require('crypto');
 
 // Make crypto available globally for ECPair
-global.crypto = {
-  getRandomValues: (arr) => crypto.randomBytes(arr.length),
-};
+if (!globalThis.crypto) {
+  globalThis.crypto = {
+    getRandomValues: (arr) => {
+      const bytes = crypto.randomBytes(arr.length);
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = bytes[i];
+      }
+      return arr;
+    },
+  };
+}
+
+// Also add to global for older Node versions
+if (!global.crypto) {
+  global.crypto = globalThis.crypto;
+}

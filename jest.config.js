@@ -18,4 +18,5 @@ export default {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   setupFiles: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: [],
 };
