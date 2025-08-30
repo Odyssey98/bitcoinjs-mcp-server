@@ -5,10 +5,11 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "bitcoinjs-mcp-server": "dist/index.js"
+    "bitcoinjs-mcp-server": "bin/bitcoinjs-mcp-server.js"
   },
   "files": [
     "dist/**/*",
+    "bin/**/*",
     "README.md",
     "package.json"
   ],

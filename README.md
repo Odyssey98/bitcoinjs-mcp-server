@@ -15,7 +15,7 @@ A Model Context Protocol (MCP) server that provides Bitcoin development tools us
 
 ### For MCP Clients (Claude Code, etc.)
 
-Add to your MCP settings:
+Add to your MCP settings (`.claude.json` or `.mcp.json`):
 
 ```json
 {
@@ -27,6 +27,52 @@ Add to your MCP settings:
   }
 }
 ```
+
+That's it! The server will be automatically installed and started when needed.
+
+**Alternative installations:**
+
+<details>
+<summary>Global Installation</summary>
+
+```bash
+npm install -g bitcoinjs-mcp-server
+```
+
+Then use:
+```json
+{
+  "mcpServers": {
+    "bitcoinjs": {
+      "command": "bitcoinjs-mcp-server"
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary>Development Setup</summary>
+
+```bash
+git clone https://github.com/Odyssey98/bitcoinjs-mcp-server.git
+cd bitcoinjs-mcp-server
+npm install && npm run build
+```
+
+Then use:
+```json
+{
+  "mcpServers": {
+    "bitcoinjs": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "/path/to/bitcoinjs-mcp-server"
+    }
+  }
+}
+```
+</details>
 
 ### For Development
 
