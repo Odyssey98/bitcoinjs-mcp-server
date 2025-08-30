@@ -1,6 +1,6 @@
 {
   "name": "bitcoinjs-mcp-server",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "MCP (Model Context Protocol) server for Bitcoin development using bitcoinjs-lib",
   "main": "dist/index.js",
   "type": "module",
